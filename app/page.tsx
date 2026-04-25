@@ -1,11 +1,11 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { supabase } from '../../lib/supabase'
+import { supabase } from '../lib/supabase'
 import { format } from 'date-fns'
 import { DayPicker } from 'react-day-picker'
 import 'react-day-picker/dist/style.css'
-import CreateAppointmentModal from '../../components/CreateAppointmentModal'
+import CreateAppointmentModal from '../components/CreateAppointmentModal'
 
 export default function Home() {
   const [companyId, setCompanyId] = useState<string | null>(null)
