@@ -8,17 +8,23 @@ import { DayPicker } from 'react-day-picker'
 import 'react-day-picker/dist/style.css'
 import CreateAppointmentModal from '@/components/CreateAppointmentModal'
 
+type Appointment = {
+  id: string
+  client_name: string
+  start_time: string
+}
+
 export default function Home() {
   const router = useRouter()
 
-  const [companyId, setCompanyId] = useState(null)
+  const [companyId, setCompanyId] = useState<string | null>(null)
   const [active, setActive] = useState(false)
   const [loading, setLoading] = useState(true)
   const [redirecting, setRedirecting] = useState(false)
 
-  const [selectedDate, setSelectedDate] = useState(new Date())
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date())
   const [showModal, setShowModal] = useState(false)
-  const [appointments, setAppointments] = useState([])
+  const [appointments, setAppointments] = useState<Appointment[]>([])
 
   useEffect(() => {
     init()
@@ -76,7 +82,7 @@ export default function Home() {
     setLoading(false)
   }
 
-  async function loadAppointments(companyId, date) {
+  async function loadAppointments(companyId: string, date: Date) {
     const start = new Date(date)
     start.setHours(0, 0, 0, 0)
 
@@ -131,7 +137,6 @@ export default function Home() {
     )
   }
 
-  // 💳 BLOQUEIO COM DESIGN BONITO
   if (!active) {
     return (
       <div className="pay-screen">
@@ -190,7 +195,6 @@ export default function Home() {
     )
   }
 
-  // ✅ SISTEMA
   return (
     <div className="app">
       <aside className="sidebar">
