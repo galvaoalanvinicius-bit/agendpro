@@ -1,151 +1,78 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { supabase } from '../lib/supabase'
+import { supabase } from '@/lib/supabase'
 
 export default function CreateAppointmentModal({
   companyId,
   selectedDate,
   onClose,
   onCreated
-}: any) {
-
-  const [services, setServices] = useState<any[]>([])
-  const [clientName, setClientName] = useState('')
+}) {
+  const [services, setServices] = useState([])
   const [serviceId, setServiceId] = useState('')
+  const [clientName, setClientName] = useState('')
   const [time, setTime] = useState('')
-  const [preview, setPreview] = useState('')
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    load()
+    loadServices()
   }, [])
 
-  async function load() {
-    try {
-      const { data, error } = await supabase
-        .from('services')
-        .select('*')
-        .eq('company_id', companyId)
+  async function loadServices() {
+    const { data } = await supabase
+      .from('services')
+      .select('*')
+      .eq('company_id', companyId)
 
-      if (error) {
-        console.error(error)
-        return
-      }
-
-      setServices(data || [])
-    } catch (err) {
-      console.error(err)
-    }
+    setServices(data || [])
   }
 
-  function updatePreview() {
-    const service = services.find(s => s.id === serviceId)
-    if (!service || !time) return
+  async function handleCreate() {
+    if (!serviceId || !time) return alert('Preencha tudo')
 
-    const [h, m] = time.split(':').map(Number)
+    setLoading(true)
+
+    const service = services.find(s => s.id === serviceId)
 
     const start = new Date(selectedDate)
-    start.setHours(h, m, 0, 0)
+    const [h, m] = time.split(':')
+    start.setHours(h, m)
 
-    const end = new Date(start.getTime() + service.duration * 60000)
+    const end = new Date(start)
+    end.setMinutes(end.getMinutes() + service.duration)
 
-    setPreview(end.toLocaleTimeString([], {
-      hour: '2-digit',
-      minute: '2-digit'
-    }))
-  }
+    const { error } = await supabase.from('appointments').insert({
+      company_id: companyId,
+      service_id: serviceId,
+      client_name: clientName,
+      start_time: start.toISOString(),
+      end_time: end.toISOString()
+    })
 
-  useEffect(() => {
-    updatePreview()
-  }, [serviceId, time])
+    setLoading(false)
 
-  async function handleSave() {
-    if (!clientName || !serviceId || !time) {
-      alert('Preencha todos os campos')
+    if (error) {
+      alert('Erro ao criar')
       return
     }
 
-    try {
-      setLoading(true)
-
-      const service = services.find(s => s.id === serviceId)
-      if (!service) {
-        alert('Serviço inválido')
-        return
-      }
-
-      const [h, m] = time.split(':').map(Number)
-
-      const start = new Date(selectedDate)
-      start.setHours(h, m, 0, 0)
-
-      const end = new Date(start.getTime() + service.duration * 60000)
-
-      // 🔒 anti conflito melhorado
-      const { data: conflict, error: conflictError } = await supabase
-        .from('appointments')
-        .select('*')
-        .eq('company_id', companyId)
-        .lt('start_time', end.toISOString())
-        .gt('end_time', start.toISOString())
-
-      if (conflictError) {
-        console.error(conflictError)
-        alert('Erro ao validar horário')
-        return
-      }
-
-      if (conflict && conflict.length > 0) {
-        alert('Já existe agendamento nesse horário')
-        return
-      }
-
-      const { error } = await supabase.from('appointments').insert({
-        company_id: companyId,
-        client_name: clientName,
-        service_id: serviceId,
-        start_time: start.toISOString(),
-        end_time: end.toISOString()
-      })
-
-      if (error) {
-        console.error(error)
-        alert('Erro ao salvar')
-        return
-      }
-
-      onCreated()
-      onClose()
-
-    } catch (err) {
-      console.error(err)
-      alert('Erro inesperado')
-    } finally {
-      setLoading(false)
-    }
+    onCreated()
+    onClose()
   }
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center">
-
-      <div className="bg-white w-[420px] p-6 rounded-2xl shadow-xl space-y-4">
-
-        <h2 className="text-xl font-bold">Novo agendamento</h2>
+    <div className="overlay">
+      <div className="modal">
+        <h2>Novo Agendamento</h2>
 
         <input
           placeholder="Cliente"
-          className="w-full border p-2 rounded"
-          value={clientName}
           onChange={(e) => setClientName(e.target.value)}
         />
 
-        <select
-          value={serviceId}
-          className="w-full border p-2 rounded"
-          onChange={(e) => setServiceId(e.target.value)}
-        >
-          <option value="">Selecione serviço</option>
+        <select onChange={(e) => setServiceId(e.target.value)}>
+          <option>Selecione serviço</option>
           {services.map(s => (
             <option key={s.id} value={s.id}>
               {s.name} ({s.duration} min)
@@ -153,28 +80,50 @@ export default function CreateAppointmentModal({
           ))}
         </select>
 
-        <input
-          type="time"
-          className="w-full border p-2 rounded"
-          value={time}
-          onChange={(e) => setTime(e.target.value)}
-        />
+        <input type="time" onChange={(e) => setTime(e.target.value)} />
 
-        {preview && (
-          <p className="text-green-600 text-sm">
-            Termina às {preview}
-          </p>
-        )}
-
-        <button
-          disabled={loading}
-          onClick={handleSave}
-          className="w-full bg-blue-600 hover:bg-blue-700 transition text-white p-2 rounded-lg"
-        >
+        <button onClick={handleCreate} disabled={loading}>
           {loading ? 'Salvando...' : 'Salvar'}
         </button>
 
+        <button onClick={onClose}>Cancelar</button>
       </div>
+
+      <style jsx>{`
+        .overlay {
+          position: fixed;
+          inset: 0;
+          background: rgba(0,0,0,0.7);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .modal {
+          background: #0b0f1a;
+          padding: 30px;
+          border-radius: 20px;
+          color: white;
+          width: 300px;
+        }
+
+        input, select {
+          width: 100%;
+          margin-top: 10px;
+          padding: 10px;
+          border-radius: 8px;
+          border: none;
+        }
+
+        button {
+          width: 100%;
+          margin-top: 10px;
+          padding: 10px;
+          border-radius: 10px;
+          background: linear-gradient(135deg,#7c3aed,#06b6d4);
+          color: white;
+        }
+      `}</style>
     </div>
   )
 }

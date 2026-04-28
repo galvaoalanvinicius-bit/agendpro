@@ -1,61 +1,55 @@
 import { NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@supabase/supabase-js'
 
 export async function POST(req: Request) {
   try {
     const body = await req.json()
 
-    console.log('Webhook recebido:', body)
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
 
     const type = body.type || body.topic
 
-    // =========================
-    // ASSINATURA
-    // =========================
-    if (type === 'subscription_preapproval' || type === 'preapproval') {
+    if (type === 'preapproval' || type === 'subscription_preapproval') {
+      const id = body.data?.id
 
-      const subscriptionId = body.data?.id
-
-      if (!subscriptionId) {
-        return NextResponse.json({ ok: false })
-      }
-
-      // consulta Mercado Pago
-      const res = await fetch(
-        `https://api.mercadopago.com/preapproval/${subscriptionId}`,
+      const mpRes = await fetch(
+        `https://api.mercadopago.com/preapproval/${id}`,
         {
           headers: {
-            Authorization: `Bearer ${process.env.MP_ACCESS_TOKEN!}`
-          }
+            Authorization: `Bearer ${process.env.MP_ACCESS_TOKEN!}`,
+          },
         }
       )
 
-      const data = await res.json()
+      const data = await mpRes.json()
 
-      const status = data.status // authorized / cancelled / paused
-      const external_reference = data.external_reference
+      const userId = data.external_reference
+      const isActive = data.status === 'authorized'
 
-      console.log('MP STATUS:', status)
+      if (!userId) {
+        return NextResponse.json({ error: "missing userId" }, { status: 400 })
+      }
 
-      // =========================
-      // ATUALIZA BANCO
-      // =========================
+      // 🔥 atualiza usuário
       await supabase
-        .from('subscriptions')
-        .update({
-          status: status === 'authorized' ? 'active' : 'inactive',
-          mp_preapproval_id: subscriptionId,
-          updated_at: new Date().toISOString()
-        })
-        .eq('company_id', external_reference)
+        .from('users')
+        .update({ paid: isActive })
+        .eq('id', userId)
 
-      return NextResponse.json({ ok: true })
+      // 🔥 log assinatura
+      await supabase.from('subscriptions').upsert({
+        mp_preapproval_id: id,
+        status: isActive ? 'active' : 'inactive',
+        company_id: userId,
+      })
     }
 
     return NextResponse.json({ ok: true })
 
   } catch (err) {
-    console.error(err)
     return NextResponse.json({ error: 'webhook error' }, { status: 500 })
   }
 }
