@@ -31,55 +31,63 @@ export default function Home() {
   }, [])
 
   async function init() {
-    setLoading(true)
+    try {
+      setLoading(true)
 
-    const { data: { user } } = await supabase.auth.getUser()
+      const { data: { user }, error } = await supabase.auth.getUser()
 
-    if (!user) {
-      setRedirecting(true)
-      router.replace('/login')
-      return
-    }
+      if (error || !user) {
+        setRedirecting(true)
+        setLoading(false) // ✅ CORREÇÃO
+        router.replace('/login')
+        return
+      }
 
-    const { data: userData } = await supabase
-      .from('users')
-      .select('onboarded')
-      .eq('id', user.id)
-      .maybeSingle()
+      const { data: userData } = await supabase
+        .from('users')
+        .select('onboarded')
+        .eq('id', user.id)
+        .maybeSingle()
 
-    if (userData && !userData.onboarded) {
-      setRedirecting(true)
-      router.replace('/onboarding')
-      return
-    }
+      if (userData && !userData.onboarded) {
+        setRedirecting(true)
+        setLoading(false) // ✅ CORREÇÃO
+        router.replace('/onboarding')
+        return
+      }
 
-    const { data: company } = await supabase
-      .from('companies')
-      .select('*')
-      .eq('owner_id', user.id)
-      .maybeSingle()
+      const { data: company } = await supabase
+        .from('companies')
+        .select('*')
+        .eq('owner_id', user.id)
+        .maybeSingle()
 
-    if (!company) {
+      if (!company) {
+        setLoading(false)
+        return
+      }
+
+      setCompanyId(company.id)
+
+      const { data: sub } = await supabase
+        .from('subscriptions')
+        .select('*')
+        .eq('company_id', company.id)
+        .maybeSingle()
+
+      const isActive = sub?.status === 'active'
+      setActive(isActive)
+
+      if (isActive) {
+        await loadAppointments(company.id, selectedDate)
+      }
+
       setLoading(false)
-      return
+
+    } catch (err) {
+      console.error('INIT ERROR:', err)
+      setLoading(false)
     }
-
-    setCompanyId(company.id)
-
-    const { data: sub } = await supabase
-      .from('subscriptions')
-      .select('*')
-      .eq('company_id', company.id)
-      .maybeSingle()
-
-    const isActive = sub?.status === 'active'
-    setActive(isActive)
-
-    if (isActive) {
-      await loadAppointments(company.id, selectedDate)
-    }
-
-    setLoading(false)
   }
 
   async function loadAppointments(companyId: string, date: Date) {
@@ -107,8 +115,10 @@ export default function Home() {
   }, [selectedDate, companyId, active])
 
   useEffect(() => {
+    if (!companyId) return
+
     const interval = setInterval(() => {
-      if (!active && companyId) {
+      if (!active) {
         init()
       }
     }, 5000)
@@ -116,7 +126,8 @@ export default function Home() {
     return () => clearInterval(interval)
   }, [active, companyId])
 
-  if (loading || redirecting) {
+  // ✅ CORREÇÃO PRINCIPAL (removido redirecting)
+  if (loading) {
     return (
       <div className="loading">
         <div className="spinner" />

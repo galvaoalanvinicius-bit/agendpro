@@ -29,20 +29,46 @@ export default function CreateAppointmentModal({
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    loadServices()
-  }, [])
+    if (companyId) {
+      loadServices()
+    }
+  }, [companyId])
 
   async function loadServices() {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('services')
       .select('*')
       .eq('company_id', companyId)
 
+    if (error) {
+      console.error('Erro ao carregar serviços:', error)
+      return
+    }
+
     setServices(data || [])
   }
 
+  // 🧠 NOVA FUNÇÃO: verifica conflito de horário
+  async function checkConflict(start: Date, end: Date) {
+    const { data, error } = await supabase
+      .from('appointments')
+      .select('id')
+      .eq('company_id', companyId)
+      .lt('start_time', end.toISOString())
+      .gt('end_time', start.toISOString())
+
+    if (error) {
+      console.error('Erro ao verificar conflito:', error)
+      return true // por segurança bloqueia
+    }
+
+    return (data && data.length > 0)
+  }
+
   async function handleCreate() {
-    if (!serviceId || !time) return alert('Preencha tudo')
+    if (!serviceId || !time || !clientName) {
+      return alert('Preencha tudo')
+    }
 
     setLoading(true)
 
@@ -60,6 +86,14 @@ export default function CreateAppointmentModal({
     const end = new Date(start)
     end.setMinutes(end.getMinutes() + service.duration)
 
+    // 🚨 BLOQUEIO DE HORÁRIO
+    const hasConflict = await checkConflict(start, end)
+
+    if (hasConflict) {
+      setLoading(false)
+      return alert('Já existe um agendamento nesse horário')
+    }
+
     const { error } = await supabase.from('appointments').insert({
       company_id: companyId,
       service_id: serviceId,
@@ -71,8 +105,8 @@ export default function CreateAppointmentModal({
     setLoading(false)
 
     if (error) {
-      alert('Erro ao criar')
-      return
+      console.error(error)
+      return alert('Erro ao criar agendamento')
     }
 
     onCreated()
