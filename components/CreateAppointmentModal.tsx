@@ -3,13 +3,26 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
+type Props = {
+  companyId: string
+  selectedDate: Date
+  onClose: () => void
+  onCreated: () => void
+}
+
+type Service = {
+  id: string
+  name: string
+  duration: number
+}
+
 export default function CreateAppointmentModal({
   companyId,
   selectedDate,
   onClose,
   onCreated
-}) {
-  const [services, setServices] = useState([])
+}: Props) {
+  const [services, setServices] = useState<Service[]>([])
   const [serviceId, setServiceId] = useState('')
   const [clientName, setClientName] = useState('')
   const [time, setTime] = useState('')
@@ -35,9 +48,14 @@ export default function CreateAppointmentModal({
 
     const service = services.find(s => s.id === serviceId)
 
+    if (!service) {
+      setLoading(false)
+      return alert('Serviço inválido')
+    }
+
     const start = new Date(selectedDate)
     const [h, m] = time.split(':')
-    start.setHours(h, m)
+    start.setHours(Number(h), Number(m))
 
     const end = new Date(start)
     end.setMinutes(end.getMinutes() + service.duration)
@@ -72,7 +90,7 @@ export default function CreateAppointmentModal({
         />
 
         <select onChange={(e) => setServiceId(e.target.value)}>
-          <option>Selecione serviço</option>
+          <option value="">Selecione serviço</option>
           {services.map(s => (
             <option key={s.id} value={s.id}>
               {s.name} ({s.duration} min)

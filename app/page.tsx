@@ -8,16 +8,22 @@ import { DayPicker } from 'react-day-picker'
 import 'react-day-picker/dist/style.css'
 import CreateAppointmentModal from '@/components/CreateAppointmentModal'
 
+type Appointment = {
+  id: string
+  client_name: string
+  start_time: string
+}
+
 export default function Home() {
   const router = useRouter()
 
-  const [companyId, setCompanyId] = useState(null)
+  const [companyId, setCompanyId] = useState<string | null>(null)
   const [active, setActive] = useState(false)
   const [loading, setLoading] = useState(true)
   const [redirecting, setRedirecting] = useState(false)
 
-  const [selectedDate, setSelectedDate] = useState(new Date())
-  const [appointments, setAppointments] = useState([])
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date())
+  const [appointments, setAppointments] = useState<Appointment[]>([])
   const [showModal, setShowModal] = useState(false)
 
   useEffect(() => {
@@ -76,7 +82,7 @@ export default function Home() {
     setLoading(false)
   }
 
-  async function loadAppointments(companyId, date) {
+  async function loadAppointments(companyId: string, date: Date) {
     const start = new Date(date)
     start.setHours(0, 0, 0, 0)
 
@@ -100,7 +106,6 @@ export default function Home() {
     }
   }, [selectedDate, companyId, active])
 
-  // 🔄 Atualiza após pagamento automaticamente
   useEffect(() => {
     const interval = setInterval(() => {
       if (!active && companyId) {
@@ -111,7 +116,6 @@ export default function Home() {
     return () => clearInterval(interval)
   }, [active, companyId])
 
-  // 🔄 loading
   if (loading || redirecting) {
     return (
       <div className="loading">
@@ -149,7 +153,6 @@ export default function Home() {
     )
   }
 
-  // 💳 pagamento
   if (!active) {
     return (
       <div className="pay">
@@ -204,7 +207,6 @@ export default function Home() {
     )
   }
 
-  // ✅ app
   return (
     <div className="app">
       <aside className="sidebar">
