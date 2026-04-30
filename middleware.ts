@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 export async function middleware(req: NextRequest) {
-  const res = NextResponse.next();
+  let res = NextResponse.next();
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -31,17 +31,16 @@ export async function middleware(req: NextRequest) {
   const isLogin = pathname === "/login";
   const isApi = pathname.startsWith("/api");
 
-  // 🔓 libera APIs (inclui webhook)
   if (isApi) return res;
 
-  // ❌ não logado → manda pro login
   if (!session && !isLogin) {
-    return NextResponse.redirect(new URL("/login", req.url));
+    const url = new URL("/login", req.url);
+    return NextResponse.redirect(url);
   }
 
-  // 🔒 logado tentando acessar login → manda pro app
   if (session && isLogin) {
-    return NextResponse.redirect(new URL("/", req.url));
+    const url = new URL("/", req.url);
+    return NextResponse.redirect(url);
   }
 
   return res;

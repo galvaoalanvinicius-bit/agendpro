@@ -18,8 +18,7 @@ export default function Login() {
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
         if (session?.user) {
-          router.replace('/') // ✅ CORRIGIDO AQUI
-          router.refresh()
+          window.location.href = '/' // 🔥 FIX DEFINITIVO
         }
       }
     )
@@ -34,7 +33,7 @@ export default function Login() {
       const { data } = await supabase.auth.getSession()
 
       if (data.session?.user) {
-        router.replace('/') // ✅ CORRIGIDO AQUI
+        window.location.href = '/' // 🔥 FIX
         return
       }
     } catch (err) {
@@ -63,7 +62,6 @@ export default function Login() {
         setLoading(false)
         return
       }
-
     } else {
       const { error } = await supabase.auth.signUp({
         email,
@@ -77,7 +75,6 @@ export default function Login() {
       }
     }
 
-    // 🔥 espera sessão existir (resolve bug do login)
     let tries = 0
     let session = null
 
@@ -92,8 +89,7 @@ export default function Login() {
     }
 
     if (session?.user) {
-      router.replace('/') // ✅ CORRIGIDO AQUI
-      router.refresh()
+      window.location.href = '/' // 🔥 FIX FINAL
     } else {
       alert('Erro ao iniciar sessão. Tente novamente.')
     }

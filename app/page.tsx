@@ -7,6 +7,7 @@ import { format } from 'date-fns'
 import { DayPicker } from 'react-day-picker'
 import 'react-day-picker/dist/style.css'
 import CreateAppointmentModal from '@/components/CreateAppointmentModal'
+import type { User } from '@supabase/supabase-js' // 🔥 IMPORTANTE
 
 type Appointment = {
   id: string
@@ -33,24 +34,24 @@ export default function Home() {
     try {
       setLoading(true)
 
-      // 🔥 pega sessão primeiro (mais confiável que getUser direto)
       const { data: sessionData } = await supabase.auth.getSession()
-      const user = sessionData?.session?.user
 
-      // pequena espera evita bug do Safari
+      // 🔥 tipagem correta
+      let user: User | null = sessionData?.session?.user ?? null
+
       if (!user) {
         await new Promise((r) => setTimeout(r, 300))
-        const { data } = await supabase.auth.getSession()
-        if (!data.session?.user) {
-          setLoading(false)
-          router.replace('/login')
-          return
+
+        const { data: newSession } = await supabase.auth.getSession()
+        user = newSession?.session?.user ?? null
+
+        if (!user) {
+          const { data: userData } = await supabase.auth.getUser()
+          user = userData.user ?? null
         }
       }
 
-      const finalUser = user || (await supabase.auth.getUser()).data.user
-
-      if (!finalUser) {
+      if (!user) {
         setLoading(false)
         router.replace('/login')
         return
@@ -59,7 +60,7 @@ export default function Home() {
       const { data: userData } = await supabase
         .from('users')
         .select('onboarded')
-        .eq('id', finalUser.id)
+        .eq('id', user.id)
         .maybeSingle()
 
       if (userData && !userData.onboarded) {
@@ -71,7 +72,7 @@ export default function Home() {
       const { data: company } = await supabase
         .from('companies')
         .select('*')
-        .eq('owner_id', finalUser.id)
+        .eq('owner_id', user.id)
         .maybeSingle()
 
       if (!company) {
@@ -95,7 +96,6 @@ export default function Home() {
       }
 
       setLoading(false)
-
     } catch (err) {
       console.error('INIT ERROR:', err)
       setLoading(false)
@@ -125,9 +125,6 @@ export default function Home() {
       loadAppointments(companyId, selectedDate)
     }
   }, [selectedDate, companyId, active])
-
-  // ❌ REMOVIDO loop agressivo (causador do bug)
-  // useEffect do setInterval foi removido
 
   if (loading) {
     return (
@@ -233,7 +230,7 @@ export default function Home() {
           className="logout"
           onClick={async () => {
             await supabase.auth.signOut()
-            router.replace('/login')
+            window.location.href = '/login'
           }}
         >
           Sair
