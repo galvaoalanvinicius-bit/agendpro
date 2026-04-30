@@ -15,28 +15,32 @@ export default function Login() {
   useEffect(() => {
     checkUser()
 
-    const { data: listener } = supabase.auth.onAuthStateChange(
+    const { data: authListener } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         if (session?.user) {
-          router.replace('/')
+          router.replace('/app') // 🔥 garante redirect correto
         }
       }
     )
 
     return () => {
-      listener.subscription.unsubscribe()
+      authListener?.subscription?.unsubscribe()
     }
   }, [])
 
   async function checkUser() {
-    const { data: { user } } = await supabase.auth.getUser()
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
 
-    if (user) {
-      router.replace('/')
-      return
+      if (user) {
+        router.replace('/app') // 🔥 mesma rota aqui
+        return
+      }
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setLoading(false) // 🔥 garante que nunca trava
     }
-
-    setLoading(false)
   }
 
   async function handleAuth() {
@@ -45,28 +49,44 @@ export default function Login() {
       return
     }
 
+    setLoading(true)
+
     if (isLogin) {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password
       })
 
       if (error) {
         alert(error.message)
+        setLoading(false)
         return
+      }
+
+      // 🔥 FORÇA REDIRECT (resolve seu bug principal)
+      if (data?.user) {
+        router.replace('/app')
       }
 
     } else {
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password
       })
 
       if (error) {
         alert(error.message)
+        setLoading(false)
         return
       }
+
+      // 🔥 também trata cadastro
+      if (data?.user) {
+        router.replace('/app')
+      }
     }
+
+    setLoading(false)
   }
 
   if (loading) {

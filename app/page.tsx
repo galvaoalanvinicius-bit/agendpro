@@ -20,7 +20,6 @@ export default function Home() {
   const [companyId, setCompanyId] = useState<string | null>(null)
   const [active, setActive] = useState(false)
   const [loading, setLoading] = useState(true)
-  const [redirecting, setRedirecting] = useState(false)
 
   const [selectedDate, setSelectedDate] = useState<Date>(new Date())
   const [appointments, setAppointments] = useState<Appointment[]>([])
@@ -34,11 +33,25 @@ export default function Home() {
     try {
       setLoading(true)
 
-      const { data: { user }, error } = await supabase.auth.getUser()
+      // 🔥 pega sessão primeiro (mais confiável que getUser direto)
+      const { data: sessionData } = await supabase.auth.getSession()
+      const user = sessionData?.session?.user
 
-      if (error || !user) {
-        setRedirecting(true)
-        setLoading(false) // ✅ CORREÇÃO
+      // pequena espera evita bug do Safari
+      if (!user) {
+        await new Promise((r) => setTimeout(r, 300))
+        const { data } = await supabase.auth.getSession()
+        if (!data.session?.user) {
+          setLoading(false)
+          router.replace('/login')
+          return
+        }
+      }
+
+      const finalUser = user || (await supabase.auth.getUser()).data.user
+
+      if (!finalUser) {
+        setLoading(false)
         router.replace('/login')
         return
       }
@@ -46,12 +59,11 @@ export default function Home() {
       const { data: userData } = await supabase
         .from('users')
         .select('onboarded')
-        .eq('id', user.id)
+        .eq('id', finalUser.id)
         .maybeSingle()
 
       if (userData && !userData.onboarded) {
-        setRedirecting(true)
-        setLoading(false) // ✅ CORREÇÃO
+        setLoading(false)
         router.replace('/onboarding')
         return
       }
@@ -59,7 +71,7 @@ export default function Home() {
       const { data: company } = await supabase
         .from('companies')
         .select('*')
-        .eq('owner_id', user.id)
+        .eq('owner_id', finalUser.id)
         .maybeSingle()
 
       if (!company) {
@@ -114,19 +126,9 @@ export default function Home() {
     }
   }, [selectedDate, companyId, active])
 
-  useEffect(() => {
-    if (!companyId) return
+  // ❌ REMOVIDO loop agressivo (causador do bug)
+  // useEffect do setInterval foi removido
 
-    const interval = setInterval(() => {
-      if (!active) {
-        init()
-      }
-    }, 5000)
-
-    return () => clearInterval(interval)
-  }, [active, companyId])
-
-  // ✅ CORREÇÃO PRINCIPAL (removido redirecting)
   if (loading) {
     return (
       <div className="loading">
