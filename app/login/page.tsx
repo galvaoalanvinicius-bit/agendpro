@@ -16,9 +16,10 @@ export default function Login() {
     checkUser()
 
     const { data: authListener } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
+      async (_event, session) => {
         if (session?.user) {
-          router.replace('/app') // 🔥 garante redirect correto
+          router.replace('/') // ✅ CORRIGIDO AQUI
+          router.refresh()
         }
       }
     )
@@ -30,16 +31,16 @@ export default function Login() {
 
   async function checkUser() {
     try {
-      const { data: { user } } = await supabase.auth.getUser()
+      const { data } = await supabase.auth.getSession()
 
-      if (user) {
-        router.replace('/app') // 🔥 mesma rota aqui
+      if (data.session?.user) {
+        router.replace('/') // ✅ CORRIGIDO AQUI
         return
       }
     } catch (err) {
       console.error(err)
     } finally {
-      setLoading(false) // 🔥 garante que nunca trava
+      setLoading(false)
     }
   }
 
@@ -52,7 +53,7 @@ export default function Login() {
     setLoading(true)
 
     if (isLogin) {
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const { error } = await supabase.auth.signInWithPassword({
         email,
         password
       })
@@ -61,15 +62,10 @@ export default function Login() {
         alert(error.message)
         setLoading(false)
         return
-      }
-
-      // 🔥 FORÇA REDIRECT (resolve seu bug principal)
-      if (data?.user) {
-        router.replace('/app')
       }
 
     } else {
-      const { data, error } = await supabase.auth.signUp({
+      const { error } = await supabase.auth.signUp({
         email,
         password
       })
@@ -79,11 +75,27 @@ export default function Login() {
         setLoading(false)
         return
       }
+    }
 
-      // 🔥 também trata cadastro
-      if (data?.user) {
-        router.replace('/app')
-      }
+    // 🔥 espera sessão existir (resolve bug do login)
+    let tries = 0
+    let session = null
+
+    while (tries < 5) {
+      const { data } = await supabase.auth.getSession()
+      session = data.session
+
+      if (session?.user) break
+
+      await new Promise((r) => setTimeout(r, 200))
+      tries++
+    }
+
+    if (session?.user) {
+      router.replace('/') // ✅ CORRIGIDO AQUI
+      router.refresh()
+    } else {
+      alert('Erro ao iniciar sessão. Tente novamente.')
     }
 
     setLoading(false)
