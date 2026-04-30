@@ -1,12 +1,9 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
 export default function Login() {
-  const router = useRouter()
-
   const [loading, setLoading] = useState(true)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -14,33 +11,17 @@ export default function Login() {
 
   useEffect(() => {
     checkUser()
-
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        if (session?.user) {
-          window.location.href = '/' // 🔥 FIX DEFINITIVO
-        }
-      }
-    )
-
-    return () => {
-      authListener?.subscription?.unsubscribe()
-    }
   }, [])
 
   async function checkUser() {
-    try {
-      const { data } = await supabase.auth.getSession()
+    const { data } = await supabase.auth.getSession()
 
-      if (data.session?.user) {
-        window.location.href = '/' // 🔥 FIX
-        return
-      }
-    } catch (err) {
-      console.error(err)
-    } finally {
-      setLoading(false)
+    if (data.session?.user) {
+      window.location.href = '/'
+      return
     }
+
+    setLoading(false)
   }
 
   async function handleAuth() {
@@ -51,50 +32,30 @@ export default function Login() {
 
     setLoading(true)
 
+    let error = null
+
     if (isLogin) {
-      const { error } = await supabase.auth.signInWithPassword({
+      const res = await supabase.auth.signInWithPassword({
         email,
         password
       })
-
-      if (error) {
-        alert(error.message)
-        setLoading(false)
-        return
-      }
+      error = res.error
     } else {
-      const { error } = await supabase.auth.signUp({
+      const res = await supabase.auth.signUp({
         email,
         password
       })
-
-      if (error) {
-        alert(error.message)
-        setLoading(false)
-        return
-      }
+      error = res.error
     }
 
-    let tries = 0
-    let session = null
-
-    while (tries < 5) {
-      const { data } = await supabase.auth.getSession()
-      session = data.session
-
-      if (session?.user) break
-
-      await new Promise((r) => setTimeout(r, 200))
-      tries++
+    if (error) {
+      alert(error.message)
+      setLoading(false)
+      return
     }
 
-    if (session?.user) {
-      window.location.href = '/' // 🔥 FIX FINAL
-    } else {
-      alert('Erro ao iniciar sessão. Tente novamente.')
-    }
-
-    setLoading(false)
+    // 🔥 REDIRECIONAMENTO DIRETO (SEM LOOP / SEM LISTENER)
+    window.location.href = '/'
   }
 
   if (loading) {

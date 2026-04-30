@@ -8,6 +8,12 @@ export const supabase = createClient(
       persistSession: true,
       autoRefreshToken: true,
       detectSessionInUrl: true,
+      storageKey: 'agendpro-auth',
+    },
+    global: {
+      headers: {
+        'X-Client-Info': 'agendpro-web',
+      },
     },
   }
 )

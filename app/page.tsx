@@ -7,7 +7,6 @@ import { format } from 'date-fns'
 import { DayPicker } from 'react-day-picker'
 import 'react-day-picker/dist/style.css'
 import CreateAppointmentModal from '@/components/CreateAppointmentModal'
-import type { User } from '@supabase/supabase-js' // 🔥 IMPORTANTE
 
 type Appointment = {
   id: string
@@ -34,29 +33,17 @@ export default function Home() {
     try {
       setLoading(true)
 
-      const { data: sessionData } = await supabase.auth.getSession()
-
-      // 🔥 tipagem correta
-      let user: User | null = sessionData?.session?.user ?? null
-
-      if (!user) {
-        await new Promise((r) => setTimeout(r, 300))
-
-        const { data: newSession } = await supabase.auth.getSession()
-        user = newSession?.session?.user ?? null
-
-        if (!user) {
-          const { data: userData } = await supabase.auth.getUser()
-          user = userData.user ?? null
-        }
-      }
+      // 🔥 PEGAR USUÁRIO DIRETO (SEM LOOP / SEM RETRY)
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
 
       if (!user) {
-        setLoading(false)
         router.replace('/login')
         return
       }
 
+      // 🔥 VERIFICA ONBOARDING
       const { data: userData } = await supabase
         .from('users')
         .select('onboarded')
@@ -64,11 +51,11 @@ export default function Home() {
         .maybeSingle()
 
       if (userData && !userData.onboarded) {
-        setLoading(false)
         router.replace('/onboarding')
         return
       }
 
+      // 🔥 BUSCA EMPRESA
       const { data: company } = await supabase
         .from('companies')
         .select('*')
@@ -82,6 +69,7 @@ export default function Home() {
 
       setCompanyId(company.id)
 
+      // 🔥 VERIFICA ASSINATURA
       const { data: sub } = await supabase
         .from('subscriptions')
         .select('*')
