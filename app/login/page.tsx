@@ -14,9 +14,11 @@ export default function Login() {
   }, [])
 
   async function checkUser() {
-    const { data } = await supabase.auth.getSession()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
 
-    if (data.session?.user) {
+    if (user) {
       window.location.href = '/'
       return
     }
@@ -54,7 +56,9 @@ export default function Login() {
       return
     }
 
-    // 🔥 REDIRECIONAMENTO DIRETO (SEM LOOP / SEM LISTENER)
+    // 🔥 GARANTE QUE A SESSÃO FOI SALVA
+    await new Promise(r => setTimeout(r, 300))
+
     window.location.href = '/'
   }
 

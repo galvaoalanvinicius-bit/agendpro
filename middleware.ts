@@ -1,49 +1,20 @@
-import { createServerClient } from "@supabase/ssr";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-export async function middleware(req: NextRequest) {
-  let res = NextResponse.next();
-
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return req.cookies.getAll();
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => {
-            res.cookies.set(name, value, options);
-          });
-        },
-      },
-    }
-  );
-
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-
+export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   const isLogin = pathname === "/login";
   const isApi = pathname.startsWith("/api");
 
-  if (isApi) return res;
+  if (isApi) return NextResponse.next();
 
-  if (!session && !isLogin) {
-    const url = new URL("/login", req.url);
-    return NextResponse.redirect(url);
+  // 🔥 NÃO BLOQUEIA MAIS "/" (resolve loop)
+  if (!isLogin && pathname !== "/") {
+    return NextResponse.next();
   }
 
-  if (session && isLogin) {
-    const url = new URL("/", req.url);
-    return NextResponse.redirect(url);
-  }
-
-  return res;
+  return NextResponse.next();
 }
 
 export const config = {
