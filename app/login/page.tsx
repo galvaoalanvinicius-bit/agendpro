@@ -14,6 +14,18 @@ export default function Login() {
 
   useEffect(() => {
     checkUser()
+
+    const { data: listener } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        if (session?.user) {
+          router.replace('/')
+        }
+      }
+    )
+
+    return () => {
+      listener.subscription.unsubscribe()
+    }
   }, [])
 
   async function checkUser() {
@@ -55,8 +67,6 @@ export default function Login() {
         return
       }
     }
-
-    router.replace('/')
   }
 
   if (loading) {
